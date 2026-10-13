@@ -59,7 +59,10 @@ const FX = {
     if (this.texts.length > 40) this.texts.shift();
     this.texts.push({ x, y, vy: -1.6, life: 1.1, maxLife: 1.1, str, color, size });
   },
-  shake(a) { this.trauma = Math.min(1, this.trauma + a); },
+  shake(a) {
+    if (typeof Settings !== 'undefined' && Settings.data && Settings.data.shake === false) return;
+    this.trauma = Math.min(1, this.trauma + a);
+  },
 
   update(dt) {
     this.time += dt;
@@ -149,14 +152,18 @@ const DayNight = {
 const SFX = {
   ctx: null,
   enabled: true,
+  master: 1,
   ensure() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.enabled = false; }
   },
+  vol(v) { return v * (this.master == null ? 1 : this.master); },
   tone(freq, dur, type = 'square', vol = 0.06, slide = 0) {
     if (!this.enabled) return;
     this.ensure();
     if (!this.ctx) return;
+    vol = this.vol(vol);
+    if (vol <= 0) return;
     const t0 = this.ctx.currentTime;
     const o = this.ctx.createOscillator(), g = this.ctx.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, t0);
@@ -170,6 +177,8 @@ const SFX = {
     if (!this.enabled) return;
     this.ensure();
     if (!this.ctx) return;
+    vol = this.vol(vol);
+    if (vol <= 0) return;
     const t0 = this.ctx.currentTime;
     const len = Math.floor(this.ctx.sampleRate * dur);
     const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);

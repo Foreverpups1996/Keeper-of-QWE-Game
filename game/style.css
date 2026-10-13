@@ -1,4 +1,5 @@
 * { box-sizing: border-box; }
+:root { --ui: 1; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0f14; color: #e8e8ee;
   font-family: "Segoe UI", Roboto, Arial, sans-serif; user-select: none; }
 canvas#game { display: block; }
@@ -21,14 +22,16 @@ canvas#game { display: block; }
   background: linear-gradient(160deg, #12151fee, #0d0f14d8);
   border-radius: 14px; border: 1px solid #ffffff22;
   box-shadow: 0 8px 28px #000a, inset 0 1px 0 #ffffff18;
-  backdrop-filter: blur(8px); }
+  backdrop-filter: blur(8px); transform: scale(var(--ui, 1)); transform-origin: top left; }
 .hudrow { display: flex; align-items: center; margin: 5px 0; gap: 6px; }
 #hudRight { position: fixed; top: 12px; right: 12px; padding: 10px; background: linear-gradient(160deg, #12151fee, #0d0f14d8);
   border-radius: 14px; border: 1px solid #ffffff22; text-align: center;
-  box-shadow: 0 8px 28px #000a, inset 0 1px 0 #ffffff18; backdrop-filter: blur(8px); }
+  box-shadow: 0 8px 28px #000a, inset 0 1px 0 #ffffff18; backdrop-filter: blur(8px);
+  transform: scale(var(--ui, 1)); transform-origin: top right; }
 #minimap { display: block; border-radius: 8px; image-rendering: pixelated; width: 160px; height: 160px; margin-bottom: 4px;
   border: 1px solid #ffffff22; box-shadow: inset 0 0 18px #000c, 0 0 0 1px #000; }
-#log { position: fixed; left: 12px; bottom: 44px; width: 440px; font-size: 14px; pointer-events: none; }
+#log { position: fixed; left: 12px; bottom: 44px; width: 440px; font-size: 14px; pointer-events: none;
+  transform: scale(var(--ui, 1)); transform-origin: bottom left; }
 #log div { background: linear-gradient(90deg, #0d0f14ee, #0d0f14aa); padding: 4px 10px; margin-top: 4px; border-radius: 8px;
   width: fit-content; max-width: 100%; transition: opacity 1s; border-left: 3px solid #4fe3ff88;
   box-shadow: 0 4px 14px #0008; animation: login .25s ease-out; }
@@ -231,8 +234,23 @@ canvas#game { display: block; }
   border: 2px solid #d8f7ff88; box-shadow: 0 4px 14px #000a; }
 body.touch #hint { display: none; }
 body.touch #log { bottom: clamp(190px, 48vmin, 260px); width: 62vw; }
-body.touch #hud { transform: scale(.92); transform-origin: top left; }
+body.touch #hud { transform: scale(calc(.92 * var(--ui, 1))); transform-origin: top left; }
 @media (max-width: 700px) {
-  body.touch #hudRight { transform: scale(.8); transform-origin: top right; }
+  body.touch #hudRight { transform: scale(calc(.8 * var(--ui, 1))); transform-origin: top right; }
   body.touch #minimap { width: 120px; height: 120px; }
 }
+
+/* ===== Настройки ===== */
+.setrow { display: flex; align-items: center; gap: 12px; margin: 10px 0; font-size: 15px; }
+.setrow label { flex: 0 0 210px; color: #ccd; }
+.setrow input[type="range"] { flex: 1; accent-color: #4fe3ff; height: 6px; cursor: pointer; }
+.setval { width: 54px; text-align: right; color: #9adcff; font-weight: 700; }
+.setbtn { background: linear-gradient(180deg, #232839, #1a1e2c); color: #e8e8ee; border: 1px solid #ffffff2a;
+  border-radius: 10px; padding: 8px 16px; font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 12px #0006, inset 0 1px 0 #ffffff18; transition: transform .12s, border-color .12s; }
+.setbtn:hover { border-color: #4fe3ff88; transform: translateY(-2px); }
+.setbtn.big { padding: 12px 20px; min-width: 150px; }
+.setbtn.danger { border-color: #ff5d5d66; color: #ffb3b3; }
+.setbtn.danger:hover { border-color: #ff5d5d; }
+.setbtns { display: flex; gap: 12px; flex-wrap: wrap; }
+.weak .st.vuln { color: #ff8ad0; border-color: #ff8ad055; }

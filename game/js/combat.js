@@ -163,7 +163,8 @@ const Combat = {
       `<span class="w trait" title="${k.trait.desc}">${k.trait.name}</span>` +
       (m.burn ? `<span class="w st">Горит ${m.burn.dmg} (${m.burn.turns})</span>` : '') +
       (m.bleed ? `<span class="w st">Кровоточит ${m.bleed.dmg} (${m.bleed.turns})</span>` : '') +
-      (m.fear ? `<span class="w st">В ужасе</span>` : '');
+      (m.fear ? `<span class="w st">В ужасе</span>` : '') +
+      (m.exposed > 0 ? `<span class="w st vuln">Уязвим +20% (${m.exposed})</span>` : '');
     document.getElementById('cDesc').textContent = `${k.trait.name}: ${k.trait.desc}.` +
       (best.kills > 0 || Object.values(best.known).some(v => v) ? ' ' + k.desc : '');
   },
@@ -327,7 +328,8 @@ const Combat = {
       if (!n) continue;
       const role = ty === this.attackType ? (ty === 'Q' && player.skill('q_arch') ? 1.6 : BAL.mainBonus) : BAL.secondary;
       const mult = this.mult()[ty];
-      const per = Math.max(0.5, player.dmg(ty) - armor);
+      let per = Math.max(0.5, player.dmg(ty) - armor);
+      if (ty === 'W' && player.hp < player.maxHp * 0.5) per += player.skill('w_rage');
       const part = n * per * role * mult;
       sum += part;
       parts[ty] = { n, part: +part.toFixed(1) };
@@ -341,6 +343,14 @@ const Combat = {
     if (blitz) { total *= BAL.blitzBonus; tags.push('МОЛНИЕНОСНО ×' + BAL.blitzBonus); }
     if (this.focus) { total *= 1.5; tags.push('КОНЦЕНТРАЦИЯ ×1.5'); this.focus = false; }
     if (this.berserk()) { total *= 1.5; tags.push('БЕРСЕРК ×1.5'); }
+    // ===== таланты: множители урона =====
+    if (perfect && player.skill('e_focus')) { total *= 1 + 0.04 * player.skill('e_focus'); tags.push('КОНЦЕНТРАЦИЯ НАБОРА'); }
+    if (this.attackType === 'Q' && player.hp >= player.maxHp && player.skill('q_mana')) { total *= 1 + 0.08 * player.skill('q_mana'); tags.push('ПРИЛИВ СИЛ'); }
+    if (this.attackType === 'Q' && player.skill('q_pen') && this.mult()[this.attackType] < 1) { total *= 1 + 0.05 * player.skill('q_pen'); tags.push('ПРОНЗАНИЕ'); }
+    if (perfect && this.attackType === 'Q' && player.skill('q_apocalypse')) { total *= 1.3; tags.push('АПОКАЛИПСИС ×1.3'); }
+    if (m.exposed > 0) { total *= 1.2; tags.push('УЯЗВИМОСТЬ ×1.2'); }
+    const critP = 0.04 * player.skill({ Q: 'q_crit', W: 'w_crit', E: 'e_crit' }[this.attackType]);
+    if (critP > 0 && Math.random() < critP) { total *= 1.5; tags.push('КРИТ ×1.5'); }
     // комбо за consecutive идеальные атаки
     if (perfect && !timeout) {
       this.combo = (this.combo || 0) + 1;
@@ -363,6 +373,11 @@ const Combat = {
       const extra = Math.round(dmg * 0.5);
       dmg += extra; tags.push('ЭХО +' + extra);
     }
+    // Похищение: буквы Q лечат
+    if (this.attackType === 'Q' && player.skill('q_leech')) {
+      const heal = player.skill('q_leech') * typed.filter(c => c === 'Q').length;
+      if (heal > 0) { const before = player.hp; player.hp = Math.min(player.maxHp, player.hp + heal); const got = player.hp - before; if (got > 0) tags.push('ПОХИЩЕНИЕ +' + got); }
+    }
     m.hp -= dmg;
     const nMain = typed.filter(c => c === this.attackType).length;
     if (nMain >= 4) {
@@ -371,6 +386,10 @@ const Combat = {
       if (r && this.attackType === 'W' && this.mult().W > 0) { m.bleed = { dmg: 3 * r * player.lvl, turns: 3 }; tags.push('КРОВОТЕЧЕНИЕ'); }
       if (r && this.attackType === 'E' && this.mult().E > 0 && Math.random() < 0.25 * r) { m.fear = true; tags.push('УЖАС'); }
     }
+    // Пустота: E-атака накладывает уязвимость
+    if (this.attackType === 'E' && player.skill('e_void')) { m.exposed = Math.max(m.exposed || 0, 3); tags.push('ПУСТОТА'); }
+    // Апокалипсис: идеальная Q-атака гарантированно поджигает
+    if (perfect && this.attackType === 'Q' && player.skill('q_apocalypse') && this.mult().Q > 0) { m.burn = { dmg: 5 * player.lvl, turns: 3 }; tags.push('ПОЖАР'); }
     History.add({
       t: 'attack', type: this.attackType, code: this.code.join(''), len: this.code.length, typed: this.pos,
       hidden: this.hidden ? this.hidden.size : 0, mistakes: this.mistakes, time: +this.elapsed.toFixed(2),
@@ -404,6 +423,7 @@ const Combat = {
   enemyTurn(step = 0) {
     const m = this.mob, k = MOB_KINDS[m.kind];
     if (step === 0) {
+      if (m.exposed > 0) m.exposed--;
       let dot = 0;
       for (const st of ['burn', 'bleed']) {
         if (!m[st]) continue;
@@ -467,19 +487,37 @@ const Combat = {
     this.phase = 'enemyResult';
     const m = this.mob, k = MOB_KINDS[m.kind];
     const frac = this.pos / this.code.length;
-    const block = Math.max(0, BAL.blockMax * frac - 0.1 * this.mistakes);
+    let block = Math.max(0, BAL.blockMax * frac - 0.1 * this.mistakes);
+    block = Math.min(0.85, block + 0.05 * player.skill('w_block'));
     const raw = this.mobAtk() * (0.85 + Math.random() * 0.3);
-    const dmg = Math.max(1, Math.round(raw * (1 - block)));
+    let dmg = Math.max(1, Math.round(raw * (1 - block)));
+    // Стойкость: входящий урон −2% за ранг
+    dmg = Math.max(1, Math.round(dmg * (1 - 0.02 * player.skill('w_armor'))));
+    // Предчувствие: шанс полностью избежать удара
+    const dodgeP = 0.05 * player.skill('e_dodge');
+    const dodged = dodgeP > 0 && Math.random() < dodgeP;
+    if (dodged) dmg = 0;
     player.hp -= dmg;
-    const perfect = frac === 1 && this.mistakes === 0;
-    const word = perfect ? 'БЛОК!' : frac >= 0.5 ? 'Частичный блок' : 'Пропущен удар';
+    const perfect = !dodged && frac === 1 && this.mistakes === 0;
+    const word = dodged ? 'УКЛОНЕНИЕ!' : perfect ? 'БЛОК!' : frac >= 0.5 ? 'Частичный блок' : 'Пропущен удар';
     const extras = [];
+    if (dodged) extras.push('Вы увернулись');
+    // Шипы: отражают часть полученного урона
+    if (dmg > 0 && player.skill('w_thorns')) {
+      const back = Math.round(dmg * 0.15 * player.skill('w_thorns'));
+      if (back > 0) { m.hp -= back; extras.push(`Шипы −${back}`); }
+    }
     if (perfect) {
       let back = 0;
       if (player.skill('q_reflect')) { const r = Math.round(raw * 0.5 * this.mult().Q); back += r; extras.push(`Отражение −${r}`); }
       if (player.skill('w_counter')) { const r = Math.round(3 * player.dmg('W') * this.mult().W); back += r; extras.push(`Контратака −${r}`); }
       if (back > 0) { m.hp -= back; this.hitAnim(); this.renderEnemy(); }
-    } else {
+      // Ментальный щит: идеальный блок лечит
+      if (player.skill('e_shield')) {
+        const before = player.hp; player.hp = Math.min(player.maxHp, player.hp + 3 * player.skill('e_shield'));
+        const got = player.hp - before; if (got > 0) extras.push(`Щит +${got}`);
+      }
+    } else if (!dodged) {
       // особенности мобов, срабатывающие на пропущенный удар
       if (this.trait() === 'poison') {
         this.poison = { dmg: Math.max(1, Math.round(this.mobAtk() * 0.3)), turns: 3 };
@@ -495,13 +533,13 @@ const Combat = {
       limit: +this.limit.toFixed(2), block: +block.toFixed(2), raw: Math.round(raw), dmg, hp: Math.max(0, player.hp), extras,
     });
     this.renderPlayer();
-    this.stage(`<div class="big" style="color:#ff7d7d">−${dmg} HP</div>
-      <div><span class="tag">${word}</span> снижено на ${Math.round(block * 100)}%</div>
+    this.stage(`<div class="big" style="color:${dodged ? '#4fe3ff' : '#ff7d7d'}">${dodged ? 'Промах!' : '−' + dmg + ' HP'}</div>
+      <div><span class="tag">${word}</span>${dodged ? '' : ' снижено на ' + Math.round(block * 100) + '%'}</div>
       ${extras.length ? `<div>${extras.map(e => `<span class="tag">${e}</span>`).join('')}</div>` : ''}
       <div class="cont">Пробел — дальше</div>`);
-    Game.log(`${k.name} нанёс вам ${dmg} урона`, '#ff9b9b');
-    FX.shake(perfect ? 0.08 : 0.35);
-    if (perfect) SFX.key(true); else SFX.hurt();
+    Game.log(dodged ? `Вы уклонились от атаки (${k.name})` : `${k.name} нанёс вам ${dmg} урона`, dodged ? '#4fe3ff' : '#ff9b9b');
+    FX.shake(dodged ? 0 : perfect ? 0.08 : 0.35);
+    if (dodged || perfect) SFX.key(true); else SFX.hurt();
     Game.updateHud();
     this.after(1.6, () => {
       if (player.hp <= 0) return this.defeat();

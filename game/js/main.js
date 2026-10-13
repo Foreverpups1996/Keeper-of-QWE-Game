@@ -67,22 +67,27 @@ const Game = {
     return true;
   },
   xpNeed() { return 20 + player.lvl * 25; },
+  maxLevel() { return (typeof MAX_LEVEL !== 'undefined') ? MAX_LEVEL : Infinity; },
+  atMaxLevel() { return player.lvl >= this.maxLevel(); },
   gainXp(n) {
+    const cap = this.maxLevel();
+    if (player.lvl >= cap) { player.xp = 0; this.updateHud(); return false; } // опыт за уровень не идёт
     player.xp += n;
     let up = false;
-    while (player.xp >= this.xpNeed()) {
+    while (player.lvl < cap && player.xp >= this.xpNeed()) {
       player.xp -= this.xpNeed();
       player.lvl++;
       player.skillPoints++;
       player.recalcMaxHp();
       player.hp = player.maxHp;
       up = true;
-      this.log(`Новый уровень ${player.lvl}! Есть очко навыков, нажмите K`, '#ffd75e');
+      this.log(`Новый уровень ${player.lvl}! Есть очко талантов, нажмите K`, '#ffd75e');
       FX.burst(player.x + 0.5, player.y + 0.3, 26, ['#ffd75e', '#fff6c8', '#ffb347'], 4);
       FX.text(player.x + 0.5, player.y - 0.4, `УР. ${player.lvl}!`, '#ffd75e', 18);
       SFX.levelup();
       FX.shake(0.25);
     }
+    if (player.lvl >= cap) { player.xp = 0; this.log(`Достигнут максимальный уровень ${cap}.`, '#ffd75e'); }
     this.updateHud();
     return up;
   },
@@ -119,8 +124,9 @@ const Game = {
       }
     }
     document.getElementById('lvlText').textContent = `Ур.${player.lvl}`;
-    document.getElementById('xpFill').style.width = 100 * player.xp / this.xpNeed() + '%';
-    document.getElementById('xpText').textContent = `${player.xp} / ${this.xpNeed()}`;
+    const xpMax = this.atMaxLevel();
+    document.getElementById('xpFill').style.width = xpMax ? '100%' : 100 * player.xp / this.xpNeed() + '%';
+    document.getElementById('xpText').textContent = xpMax ? 'МАКС' : `${player.xp} / ${this.xpNeed()}`;
     document.getElementById('goldText').textContent = `Золото: ${player.gold}`;
     document.getElementById('dmgText').innerHTML = TYPE_KEYS.map(t =>
       `<span class="t-${t}">${t}:${player.dmg(t).toFixed(1)}</span>`).join(' ') +
@@ -481,10 +487,13 @@ function render(time) {
       }
 
   // мобы — псевдо-3D с тенью, прыжком, полоской HP
+  const viewLim = weatherViewLimit();
   for (const m of world.mobs) {
     m.rx += (m.x - m.rx) * 0.25; m.ry += (m.y - m.ry) * 0.25;
     const sx = m.rx * TS - camX, sy = m.ry * TS - camY;
     if (sx < -TS || sy < -TS || sx > w + TS || sy > h + TS) continue;
+    // туман/дождь режут обзор: далёкие мобы не видны
+    if (!world.isDungeon && viewLim < 90 && (Math.abs(m.x - player.x) + Math.abs(m.y - player.y)) > viewLim) continue;
     if (m.disguised) { // мимик выглядит как сундук
       const bobY = Math.sin(time * 2 + m.homeX) * 1.5;
       drawShape3D(ctx, CHEST_LOOK, sx + 16, sy + 16 + bobY, 9, { h: 7 });
@@ -584,17 +593,65 @@ function render(time) {
   // свет: факел в подземелье / день-ночь + виньетка снаружи
   ctx.drawImage(world.isDungeon ? torch(w, h, time) : vignette(w, h), 0, 0);
   if (!world.isDungeon) {
+    const dnOn = (typeof Settings === 'undefined') || (Settings.data.daynight !== false);
     const ov = DayNight.overlay();
-    if (ov.dark > 0.02) {
+    if (dnOn && ov.dark > 0.02) {
       ctx.fillStyle = `rgba(8,12,40,${ov.dark})`;
       ctx.fillRect(0, 0, w, h);
     }
     // тёплый свет дня
-    const dayGlow = ctx.createRadialGradient(w / 2, h * 0.25, 10, w / 2, h * 0.25, Math.max(w, h) * 0.7);
-    dayGlow.addColorStop(0, 'rgba(255,240,200,0.06)');
-    dayGlow.addColorStop(1, 'rgba(255,240,200,0)');
-    ctx.fillStyle = dayGlow; ctx.fillRect(0, 0, w, h);
+    if (dnOn) {
+      const dayGlow = ctx.createRadialGradient(w / 2, h * 0.25, 10, w / 2, h * 0.25, Math.max(w, h) * 0.7);
+      dayGlow.addColorStop(0, 'rgba(255,240,200,0.06)');
+      dayGlow.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.fillStyle = dayGlow; ctx.fillRect(0, 0, w, h);
+    }
+    drawWeather(w, h, time);
   }
+}
+
+// Погода в открытом мире: дождь (штрихи) и туман (молочная пелена, режет обзор)
+function drawWeather(w, h, time) {
+  if (typeof Game === 'undefined') return;
+  if (Game.weather === 'rain') {
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,30,55,0.18)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(170,200,255,0.35)';
+    ctx.lineWidth = 1.2;
+    const count = 90, t = time * 900;
+    for (let i = 0; i < count; i++) {
+      const seed = i * 97.13;
+      const x = ((seed * 7.3 + t * 0.6) % (w + 40)) - 20;
+      const y = ((seed * 3.1 + t) % (h + 40)) - 20;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3, y + 12); ctx.stroke();
+    }
+    // вспышки-лужи на «земле» не рисуем — обходятся штрихами
+    ctx.restore();
+  } else if (Game.weather === 'fog') {
+    ctx.save();
+    const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.12, w / 2, h / 2, Math.max(w, h) * 0.62);
+    g.addColorStop(0, 'rgba(190,200,215,0.05)');
+    g.addColorStop(0.6, 'rgba(180,190,210,0.28)');
+    g.addColorStop(1, 'rgba(170,180,200,0.6)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    // плавающие клочья тумана
+    ctx.globalAlpha = 0.18;
+    for (let i = 0; i < 3; i++) {
+      const y = h * (0.3 + i * 0.22) + Math.sin(time * 0.5 + i * 2) * 14;
+      ctx.fillStyle = '#c8d2e0';
+      ctx.beginPath(); ctx.ellipse((w / 2) + Math.sin(time * 0.3 + i) * w * 0.25, y, w * 0.55, 46, 0, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// насколько сильно погода режет обзор (0 — ясно, 1 — плотный туман)
+function weatherViewLimit() {
+  if (typeof Game === 'undefined') return 99;
+  if (Game.weather === 'fog') return 7;  // дальше — мобы скрыты
+  if (Game.weather === 'rain') return 14;
+  return 99;
 }
 
 // в подземелье темно: видно только вокруг игрока (с мерцанием факела)
@@ -693,8 +750,10 @@ function renderMinimap() {
     }
   mctx.putImageData(mmImg, 0, 0);
   mctx.fillStyle = '#ff3b3b';
+  const vlim = weatherViewLimit();
   for (const m of world.mobs) {
-    if (m.disguised || (world.isDungeon && Math.abs(m.x - player.x) + Math.abs(m.y - player.y) > 8)) continue;
+    const md = Math.abs(m.x - player.x) + Math.abs(m.y - player.y);
+    if (m.disguised || (world.isDungeon && md > 8) || (!world.isDungeon && vlim < 90 && md > vlim)) continue;
     const x = m.x - player.x + 60, y = m.y - player.y + 60;
     if (x >= 0 && y >= 0 && x < 120 && y < 120) mctx.fillRect(x - 1, y - 1, 2, 2);
   }
@@ -702,9 +761,11 @@ function renderMinimap() {
   mctx.fillStyle = '#ffd75e'; mctx.fillRect(sx - 2, sy - 2, 4, 4);
   mctx.fillStyle = '#fff'; mctx.fillRect(58, 58, 4, 4);
   const t = world.tileAt(player.x, player.y);
+  const weather = (typeof Game !== 'undefined' && Game.weather && typeof WEATHERS !== 'undefined' && WEATHERS[Game.weather])
+    ? ' · ' + WEATHERS[Game.weather].name : '';
   document.getElementById('posText').textContent = world.isDungeon
     ? `Подземелье ур.${world.level} · лестница наверх — жёлтая точка`
-    : `${DayNight.label()} · ${TILE_INFO[t].name} · зона ур.${world.zoneLevel(player.x, player.y)} · (${player.x - world.spawn.x}, ${player.y - world.spawn.y})`;
+    : `${DayNight.label()}${weather} · ${TILE_INFO[t].name} · зона ур.${world.zoneLevel(player.x, player.y)} · (${player.x - world.spawn.x}, ${player.y - world.spawn.y})`;
 }
 
 // ===== Панели: инвентарь, бестиарий, навыки, помощь =====
