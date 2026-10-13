@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>QWE Бродилка</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hudrow"><span class="lbl">HP</span><div class="bar hp"><div id="hpFill"></div><span id="hpText"></span></div></div>
+  <div class="hudrow"><span class="lbl">EN</span><div class="bar st"><div id="stFill"></div><span id="dashText"></span></div></div>
+  <div class="hudrow"><span class="lbl" id="lvlText">Ур.1</span><div class="bar xp"><div id="xpFill"></div><span id="xpText"></span></div></div>
+  <div class="hudrow small"><span id="goldText"></span> &nbsp; <span id="dmgText"></span></div>
+</div>
+<div id="hudRight" class="hidden">
+  <canvas id="minimap" width="120" height="120"></canvas>
+  <div id="posText" class="small"></div>
+</div>
+<div id="log"></div>
+<div id="hint" class="hidden">WASD — ходить · Shift — бег · Пробел — рывок · I — инвентарь · K — навыки · B — бестиарий · L — летопись · G — гримуар · J — достижения · F — рыбалка · T — стойка · Z/X/C — длина кода · H — помощь · Esc — меню</div>
+
+<!-- Бой -->
+<div id="combat" class="overlay hidden">
+  <div class="cbox">
+    <div class="enemy">
+      <canvas id="cPortrait" class="cemoji" width="120" height="120"></canvas>
+      <div class="einfo">
+        <div id="cName" class="cname"></div>
+        <div class="bar ehp"><div id="cHpFill"></div><span id="cHpText"></span></div>
+        <div id="cWeak" class="weak"></div>
+        <div id="cDesc" class="desc"></div>
+      </div>
+    </div>
+    <div id="cStage" class="stage"></div>
+    <div class="pinfo">
+      <span class="lbl">Вы</span>
+      <div class="bar hp"><div id="pHpFill"></div><span id="pHpText"></span></div>
+      <span id="cBuffs" class="buffs"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Ловушка -->
+<div id="trap" class="hidden">
+  <div id="trapTitle" class="ttitle"></div>
+  <div id="trapSub" class="sub"></div>
+  <div id="trapCode" class="code"></div>
+  <div class="timer"><div id="trapFill"></div></div>
+</div>
+
+<!-- Меню -->
+<div id="menu" class="overlay menu hidden">
+  <div class="mbox">
+    <div class="logo"><span class="t-Q">Q</span><span class="t-W">W</span><span class="t-E">E</span></div>
+    <div class="mtitle">Бродилка</div>
+    <div id="menuItems"></div>
+    <div class="mfoot">WASD / стрелки и Enter, или мышь</div>
+  </div>
+</div>
+
+<!-- Панели -->
+<div id="panel" class="overlay hidden"><div class="pbox" id="panelBox"></div></div>
+
+<script src="js/data.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/shapes.js"></script>
+<script src="js/world.js"></script>
+<script src="js/tiles.js"></script>
+<script src="js/dungeon.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/main.js"></script>
+<script src="js/touch.js"></script>
+<script src="js/merged.js"></script>
+</body>
+</html>
