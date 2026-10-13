@@ -34,6 +34,14 @@
   window.Settings = Settings;
 
   // ---------- экспорт / импорт / сброс ----------
+  function capPlugin(name) {
+    try {
+      const C = window.Capacitor;
+      if (!C || !C.isNativePlatform || !C.isNativePlatform()) return null;
+      return (C.Plugins && C.Plugins[name]) || null;
+    } catch (e) { return null; }
+  }
+
   function download(name, text) {
     try {
       const blob = new Blob([text], { type: 'application/json' });
@@ -46,7 +54,20 @@
     } catch (e) { return false; }
   }
 
-  function exportSave() {
+  // Нативный экспорт (Capacitor/iOS): пишем файл в кэш и открываем системный
+  // лист «Поделиться» — из него сохранение можно сохранить в «Файлы», отправить и т.п.
+  async function nativeExport(name, text) {
+    const FS = capPlugin('Filesystem');
+    const Share = capPlugin('Share');
+    if (!FS || !Share) return false;
+    try {
+      const res = await FS.writeFile({ path: name, data: text, directory: 'CACHE', recursive: true });
+      await Share.share({ title: name, files: [res.uri] });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  async function exportSave() {
     const payload = {
       app: 'Keeper of QWE', type: 'save', date: new Date().toISOString(),
       save: localStorage.getItem(saveKeyName),
@@ -56,7 +77,9 @@
     const d = new Date();
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const name = `keeper-of-qwe-save-${stamp}.json`;
-    if (download(name, JSON.stringify(payload, null, 2))) Game.log('Сохранение выгружено: ' + name, '#5be06b');
+    const text = JSON.stringify(payload, null, 2);
+    if (await nativeExport(name, text)) { Game.log('Сохранение готово к отправке: ' + name, '#5be06b'); return; }
+    if (download(name, text)) Game.log('Сохранение выгружено: ' + name, '#5be06b');
     else Game.log('Не удалось выгрузить сохранение', '#ff9b9b');
   }
 
@@ -178,6 +201,12 @@
         this.draw();
       }
     };
+    // Главное меню рисуется при загрузке main.js — до этого патча.
+    // Перерисовываем открытое стартовое меню, чтобы пункт появился и в нём.
+    try {
+      const menuEl = document.getElementById('menu');
+      if (typeof Game !== 'undefined' && Game.mode === 'menu' && menuEl && !menuEl.classList.contains('hidden')) Menu.show();
+    } catch (e) {}
   }
 
   console.log('[SETTINGS] загружены: громкость, масштаб UI, тряска, день/ночь, экспорт/импорт/сброс');

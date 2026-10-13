@@ -40,7 +40,7 @@ function makePlayer(spawn) {
 }
 
 const Game = {
-  mode: 'menu', // menu | world | combat | inventory | bestiary | skills | help
+  mode: 'menu', // menu | world | combat | inventory | bestiary | skills | history | help | quests | net | settings
   bestiary: {},
   beast(kind) {
     if (!this.bestiary[kind]) this.bestiary[kind] = { seen: false, kills: 0, known: { Q: false, W: false, E: false } };
@@ -243,6 +243,9 @@ const DIRS = {
 };
 // e.code не зависит от раскладки — Q/W/E работают и на русской (Й/Ц/У)
 window.addEventListener('keydown', e => {
+  // когда фокус в поле ввода (код-приглашение/чат/имя) — не перехватываем клавиши
+  const tgt = e.target;
+  if (tgt && tgt.tagName && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA')) return;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
   if (e.repeat && Game.mode !== 'world') return;
   held.add(e.code);
@@ -254,6 +257,8 @@ window.addEventListener('keydown', e => {
   else if (e.code === 'KeyB') openPanel('bestiary');
   else if (e.code === 'KeyK') openPanel('skills');
   else if (e.code === 'KeyL') openPanel('history');
+  else if (e.code === 'KeyU') openPanel('quests');
+  else if (e.code === 'KeyN') openPanel('net');
   else if (e.code === 'KeyH') openPanel('help');
   else if (e.code === 'Space') tryDash();
   else if (e.code === 'Escape') Menu.show();
@@ -537,6 +542,9 @@ function render(time) {
       ctx.fillStyle = '#ff4d4d'; ctx.fillText('!', sx + 16, sy - 8 + jb);
     }
   }
+
+  // другие игроки в сети (кооператив) — под локальным игроком
+  if (typeof Net !== 'undefined' && Net.active) Net.drawRemotes(ctx, camX, camY, TS, time);
 
   // игрок — объёмный, наклоняется по движению, след рывка
   player.rx += (player.x - player.rx) * 0.35; player.ry += (player.y - player.ry) * 0.35;

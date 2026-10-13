@@ -1,7 +1,9 @@
 * { box-sizing: border-box; }
 :root { --ui: 1; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0f14; color: #e8e8ee;
-  font-family: "Segoe UI", Roboto, Arial, sans-serif; user-select: none; }
+  font-family: "Segoe UI", Roboto, Arial, sans-serif; user-select: none; -webkit-user-select: none;
+  overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%; }
 canvas#game { display: block; }
 .hidden { display: none !important; }
 .small { font-size: 13px; color: #c9cbd6; }
@@ -18,25 +20,25 @@ canvas#game { display: block; }
 .bar.st { height: 13px; }
 .bar.st > span { font-size: 10px; line-height: 12px; color: #dff6ff; }
 
-#hud { position: fixed; top: 12px; left: 12px; width: 280px; padding: 12px 14px;
+#hud { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); width: 280px; padding: 12px 14px;
   background: linear-gradient(160deg, #12151fee, #0d0f14d8);
   border-radius: 14px; border: 1px solid #ffffff22;
   box-shadow: 0 8px 28px #000a, inset 0 1px 0 #ffffff18;
   backdrop-filter: blur(8px); transform: scale(var(--ui, 1)); transform-origin: top left; }
 .hudrow { display: flex; align-items: center; margin: 5px 0; gap: 6px; }
-#hudRight { position: fixed; top: 12px; right: 12px; padding: 10px; background: linear-gradient(160deg, #12151fee, #0d0f14d8);
+#hudRight { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); padding: 10px; background: linear-gradient(160deg, #12151fee, #0d0f14d8);
   border-radius: 14px; border: 1px solid #ffffff22; text-align: center;
   box-shadow: 0 8px 28px #000a, inset 0 1px 0 #ffffff18; backdrop-filter: blur(8px);
   transform: scale(var(--ui, 1)); transform-origin: top right; }
 #minimap { display: block; border-radius: 8px; image-rendering: pixelated; width: 160px; height: 160px; margin-bottom: 4px;
   border: 1px solid #ffffff22; box-shadow: inset 0 0 18px #000c, 0 0 0 1px #000; }
-#log { position: fixed; left: 12px; bottom: 44px; width: 440px; font-size: 14px; pointer-events: none;
+#log { position: fixed; left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(44px + env(safe-area-inset-bottom, 0px)); width: 440px; font-size: 14px; pointer-events: none;
   transform: scale(var(--ui, 1)); transform-origin: bottom left; }
 #log div { background: linear-gradient(90deg, #0d0f14ee, #0d0f14aa); padding: 4px 10px; margin-top: 4px; border-radius: 8px;
   width: fit-content; max-width: 100%; transition: opacity 1s; border-left: 3px solid #4fe3ff88;
   box-shadow: 0 4px 14px #0008; animation: login .25s ease-out; }
 @keyframes login { from { transform: translateX(-12px); opacity: 0; } to { transform: none; opacity: 1; } }
-#hint { position: fixed; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 13px; color: #aab;
+#hint { position: fixed; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 13px; color: #aab;
   text-shadow: 0 1px 2px #000, 0 0 12px #000; pointer-events: none;
   background: linear-gradient(90deg, transparent, #00000088 20%, #00000088 80%, transparent); padding: 4px 0; }
 
@@ -235,6 +237,7 @@ canvas#game { display: block; }
 body.touch #hint { display: none; }
 body.touch #log { bottom: clamp(190px, 48vmin, 260px); width: 62vw; }
 body.touch #hud { transform: scale(calc(.92 * var(--ui, 1))); transform-origin: top left; }
+body.touch #trap { bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 700px) {
   body.touch #hudRight { transform: scale(calc(.8 * var(--ui, 1))); transform-origin: top right; }
   body.touch #minimap { width: 120px; height: 120px; }
@@ -254,3 +257,25 @@ body.touch #hud { transform: scale(calc(.92 * var(--ui, 1))); transform-origin: 
 .setbtn.danger:hover { border-color: #ff5d5d; }
 .setbtns { display: flex; gap: 12px; flex-wrap: wrap; }
 .weak .st.vuln { color: #ff8ad0; border-color: #ff8ad055; }
+
+/* ===== Квесты ===== */
+.qrow { border: 1px solid #ffffff18; border-radius: 12px; padding: 10px 12px; margin: 8px 0; background: #1a1e2c88; }
+.qhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.qhead .tag { font-size: 11px; color: #9adcff; border: 1px solid #9adcff55; border-radius: 8px; padding: 1px 8px; }
+.qbar { height: 8px; background: #0f1220; border-radius: 6px; overflow: hidden; margin-top: 6px; }
+.qbar > div { height: 100%; background: linear-gradient(90deg, #4fe3ff, #5be06b); }
+#questTracker { position: fixed; right: 12px; top: 150px; width: 230px; z-index: 6; pointer-events: none;
+  display: flex; flex-direction: column; gap: 6px; }
+#questTracker.hidden { display: none; }
+.qt { background: #10131c99; border: 1px solid #ffffff18; border-radius: 10px; padding: 6px 9px; }
+.qtt { display: flex; justify-content: space-between; font-size: 12px; color: #dfe6f5; }
+.qtt span { color: #9adcff; font-weight: 700; }
+.qtb { height: 5px; background: #0b0e18; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.qtb > div { height: 100%; background: linear-gradient(90deg, #4fe3ff, #5be06b); }
+
+/* ===== Сеть ===== */
+.netta { width: 100%; min-height: 74px; resize: vertical; background: #0c0f17; color: #cfe; border: 1px solid #ffffff26;
+  border-radius: 10px; padding: 8px; font: 12px/1.4 monospace; margin: 6px 0; box-sizing: border-box; }
+.netinput { flex: 1; background: #0c0f17; color: #cfe; border: 1px solid #ffffff26; border-radius: 10px; padding: 8px 10px; font-size: 14px; }
+.netchat { max-height: 160px; overflow-y: auto; background: #0c0f1799; border: 1px solid #ffffff18; border-radius: 10px;
+  padding: 8px; font-size: 13px; color: #dfe6f5; display: flex; flex-direction: column; gap: 3px; }
