@@ -1,0 +1,4 @@
+{
+  "version": "1.0.8",
+  "notes": "Версия лаунчера. При выпуске новой версии обновите поле version и выложите установщик Keeper-of-QWE-Setup-<версия>.exe в GitHub Releases с тегом launcher-v<версия>."
+}
