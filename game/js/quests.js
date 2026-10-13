@@ -63,21 +63,31 @@
       if (this.state.prog[q.id] >= q.n) this.complete(q);
     },
 
+    _lock: {},
     complete(q) {
-      const r = q.reward || {};
-      const parts = [];
-      if (r.xp) { Game.gainXp(r.xp); parts.push(`+${r.xp} опыта`); }
-      if (r.gold) { player.gold += r.gold; parts.push(`+${r.gold} золота`); }
-      if (r.sp) { player.skillPoints += r.sp; parts.push(`+${r.sp} очко навыков`); }
-      if (r.item) { Game.addItem(r.item); parts.push(ITEMS[r.item].name); }
-      Game.log(`Задание выполнено: ${q.title} — ${parts.join(', ')}`, '#5be06b');
-      if (typeof SFX !== 'undefined' && SFX.win) SFX.win();
-      if (q.repeat) this.state.prog[q.id] = 0;             // повторяемые остаются активными
-      else { this.state.done[q.id] = true; delete this.state.taken[q.id]; }
-      if (q.next) this.grant(q.next);                      // сюжетная цепочка
-      this.save();
-      this.updateTracker();
-      if (Game.updateHud) Game.updateHud();
+      if (!this.state || !this.state.taken[q.id] || this._lock[q.id]) return;
+      this._lock[q.id] = true;
+      try {
+        // Снимаем с активных ДО выдачи наград: награды (опыт/предметы) ре-ентрантно
+        // вызывают tick()/onItem(), которые иначе засчитали бы это же задание снова
+        // (убегание: сундук -> золото -> награда +120 опыта -> tick -> снова «выполнено»…).
+        if (q.repeat) this.state.prog[q.id] = 0;             // повторяемые остаются активными
+        else { this.state.done[q.id] = true; delete this.state.taken[q.id]; }
+        const r = q.reward || {};
+        const parts = [];
+        if (r.xp) { Game.gainXp(r.xp); parts.push(`+${r.xp} опыта`); }
+        if (r.gold) { player.gold += r.gold; parts.push(`+${r.gold} золота`); }
+        if (r.sp) { player.skillPoints += r.sp; parts.push(`+${r.sp} очко навыков`); }
+        if (r.item) { Game.addItem(r.item); parts.push(ITEMS[r.item].name); }
+        Game.log(`Задание выполнено: ${q.title} — ${parts.join(', ')}`, '#5be06b');
+        if (typeof SFX !== 'undefined' && SFX.win) SFX.win();
+        if (q.next) this.grant(q.next);                      // сюжетная цепочка
+        this.save();
+        this.updateTracker();
+        if (Game.updateHud) Game.updateHud();
+      } finally {
+        delete this._lock[q.id];
+      }
     },
 
     // --- события мира ---
