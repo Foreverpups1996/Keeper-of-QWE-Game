@@ -206,6 +206,11 @@ const Menu = {
       Game.newGame();
     }]);
     if (inGame) this.items.push(['Сохранить', () => { Game.save(); Game.log('Сохранено', '#cfe'); Menu.hide(); Game.mode = 'world'; }]);
+    this.items.push(['Сетевая игра', () => {
+      if (!world) { if (hasSave) Game.continueGame(); else Game.newGame(); }
+      Menu.hide();
+      openPanel('net');
+    }]);
     this.items.push(['Как играть', () => { Menu.hide(); openPanel('help'); }]);
     this.items.push(['Выход', () => { Game.save(); window.close(); }]);
     this.sel = 0;
