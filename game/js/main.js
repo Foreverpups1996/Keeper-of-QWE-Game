@@ -789,7 +789,14 @@ function openPanel(name) {
   panel.classList.remove('hidden');
   drawPanel();
 }
-function closePanel() { Game.mode = 'world'; panel.classList.add('hidden'); }
+function closePanel() {
+  panel.classList.add('hidden');
+  // Мир может быть ещё не создан (панель открыта из главного меню: Справка/Настройки).
+  // Тогда возвращаемся в меню — иначе updateWorld() упадёт на world === null и
+  // цикл отрисовки остановится (экран «пропадёт»).
+  if (world) Game.mode = 'world';
+  else Menu.show();
+}
 
 function drawPanel() {
   if (Game.mode === 'inventory') {
@@ -966,7 +973,7 @@ let last = performance.now(), mmTimer = 0, saveTimer = 30;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  if (Game.mode === 'world') updateWorld(dt);
+  if (Game.mode === 'world' && world) updateWorld(dt);
   else if (Game.mode === 'combat') { Combat.update(dt); FX.update(dt); }
   else if (Game.mode === 'trap') { Trap.update(dt); FX.update(dt); }
   else { FX.update(dt); }
